@@ -394,6 +394,28 @@ partial def normalizeGoalMVar (goal : MVarId)
   runNormSteps goal normSteps
     (by simp (config := { decide := true }) [normSteps])
 
+  -- Define an auxiliary reduction function to simplify expressions
+def reduceExpr (expr : Expr) : MetaM (Option Nat) := do
+  let reducedExpr ← reduce expr               -- Reduce the given expression
+  match (← evalNat? reducedExpr) with         -- Try to evaluate it as Nat
+  | some n => return some n
+  | none => return none
+
+  -- try to run a solution-finding routine using reduction
+def findBestSolution (goal : MVarId) (range : List Nat) : MetaM (Option Nat) := do
+  let mut bestSolution := none : Option Nat
+  for x in range do
+    -- Generate an expression based on the goal (customize this based on `goal`)
+    let expr := mkAppM `goal #[mkNatLit x]    -- Apply the goal function to `x`
+    match (← reduceExpr expr) with            -- Apply reduction to this expression
+    | some value =>
+      match bestSolution with
+      | none => bestSolution := some value
+      | some bestVal => if value < bestVal then bestSolution := some value
+    | none => continue
+  return bestSolution
+
+
 -- Returns true if the goal was solved by normalisation.
 def normalizeGoalIfNecessary (gref : GoalRef) [Aesop.Queue Q] :
     SearchM Q Bool := do
