@@ -390,30 +390,27 @@ partial def normalizeGoalMVar (goal : MVarId)
     NormStep.unfold,
     NormStep.simp mvarsHashSet,
     NormStep.runPostSimpRules mvars
+    NormStep.reduce  -- New step added here
   ]
   runNormSteps goal normSteps
     (by simp (config := { decide := true }) [normSteps])
 
-  -- Define an auxiliary reduction function to simplify expressions
-def reduceExpr (expr : Expr) : MetaM (Option Nat) := do
-  let reducedExpr ← reduce expr               -- Reduce the given expression
-  match (← evalNat? reducedExpr) with         -- Try to evaluate it as Nat
-  | some n => return some n
-  | none => return none
+-- New reduction step definition
+def NormStep.reduce : NormStep
+  | goal, _, _ => do
+    -- Attempt to reduce the goal using Lean.Meta.reduce
+    let reducedExpr ← goal.withContext do
+      let goalType ← goal.getType
+      Lean.Meta.reduce goalType
+    let goalExpr ← mkFreshExprMVar reducedExpr
+    goal.assign goalExpr
+    aesop_trace[steps] "Reduced goal using Lean.Meta.reduce to: {goalExpr}"
 
-  -- try to run a solution-finding routine using reduction
-def findBestSolution (goal : MVarId) (range : List Nat) : MetaM (Option Nat) := do
-  let mut bestSolution := none : Option Nat
-  for x in range do
-    -- Generate an expression based on the goal (customize this based on `goal`)
-    let expr := mkAppM `goal #[mkNatLit x]    -- Apply the goal function to `x`
-    match (← reduceExpr expr) with            -- Apply reduction to this expression
-    | some value =>
-      match bestSolution with
-      | none => bestSolution := some value
-      | some bestVal => if value < bestVal then bestSolution := some value
-    | none => continue
-  return bestSolution
+    -- Check if the reduction solved the goal or simplified it further
+    if ← goalExpr.mvarId!.isAssigned then
+      return .proved #[(.normReduce, none)]
+    else
+      return .changed goalExpr.mvarId! #[(.normReduce, none)]
 
 
 -- Returns true if the goal was solved by normalisation.
