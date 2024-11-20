@@ -339,35 +339,84 @@ def NormStep.simp (mvars : Std.HashSet MVarId) : NormStep
     let r := (← normSimp goal mvars).map (.normSimp, ·)
     return optNormRuleResultToNormSeqResult r
 
+-- New reduction step definition
+/-def NormStep.reduce : NormStep
+  | goal, _, _ => do
+    -- Retrieve the goal's type
+    let goalType ← goal.getType
+
+    -- Apply reduction to simplify the goal type
+    let reducedExpr ← Lean.Meta.reduce goalType
+
+    -- Check if the reduction changed the goal type
+    if reducedExpr == goalType then
+      -- No change after reduction, so the goal remains the same
+      aesop_trace[steps] "Reduction did not simplify the goal."
+      return .unchanged
+    else
+      -- If the type has changed, assign the new type to the goal
+      let newGoal ← goal.assign reducedExpr
+
+      -- Return the new goal without using a rule name
+      return .changed newGoal"""-/
+
+
+  def reduceAllInGoal (goal : MVarId) : MetaM MVarId := do
+   goal.withContext do
+   withReducible do
+     let type ← goal.getType
+     let type ← reduceAll type
+     let mut newLCtx : LocalContext := {}
+     for ldecl in ← getLCtx do
+       if ldecl.isImplementationDetail then
+         continue
+       let type := ldecl.type
+       let type ← reduceAll type
+       let mut newLDecl := ldecl.setType type
+       if let some val := ldecl.value? then
+         let val ← reduceAll val
+         newLDecl := newLDecl.setValue val
+       newLCtx := newLCtx.addDecl newLDecl
+     let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) type
+     goal.assign newGoal
+     return newGoal.mvarId!
+
+  def NormStep.reduceAllInGoal : NormStep
+    | goal, _, _ => do
+      let newGoal ← liftMetaM do Aesop.reduceAllInGoal goal
+      return .changed newGoal #[]
+
 partial def normalizeGoalMVar (goal : MVarId)
     (mvars : UnorderedArraySet MVarId) : NormM NormSeqResult := do
   let mvarsHashSet := .ofArray mvars.toArray
   let mut normSteps := #[
+
     NormStep.runPreSimpRules mvars,
     NormStep.unfold,
     NormStep.simp mvarsHashSet,
-    NormStep.runPostSimpRules mvars
-    NormStep.reduce  -- New step added here
+    NormStep.runPostSimpRules mvars,
+    NormStep.reduceAllInGoal
+      -- New step added here
   ]
   runNormSteps goal normSteps
     (by simp (config := { decide := true }) [normSteps])
 
--- New reduction step definition
-def NormStep.reduce : NormStep
-  | goal, _, _ => do
-    -- Attempt to reduce the goal using Lean.Meta.reduce
-    let reducedExpr ← goal.withContext do
-      let goalType ← goal.getType
-      Lean.Meta.reduce goalType
-    let goalExpr ← mkFreshExprMVar reducedExpr
-    goal.assign goalExpr
-    aesop_trace[steps] "Reduced goal using Lean.Meta.reduce to: {goalExpr}"
+
+    --check if the reduction goal is still the same
+    --replce with new function
+    --reduce everything even in hypothesis
+    -- fix the continue part
+    -- track if anything has reduce (boolean type)
+    -- measuring the normalisation part
+    -- use time function to calculate how long it takes
+    -- how measure the upside of this reduction (which part of existing aesop will become simpler)
+    -- decide if whmf and isdefEq is worth it
 
     -- Check if the reduction solved the goal or simplified it further
-    if ← goalExpr.mvarId!.isAssigned then
+    /-if ← goalExpr.mvarId!.isAssigned then
       return .proved #[(.normReduce, none)]
     else
-      return .changed goalExpr.mvarId! #[(.normReduce, none)]
+      return .changed goalExpr.mvarId! #[(.normReduce, none)]-/
 
 
 -- Returns true if the goal was solved by normalisation.
