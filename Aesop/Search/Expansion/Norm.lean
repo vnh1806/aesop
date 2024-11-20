@@ -496,32 +496,32 @@ partial def normalizeGoalMVar (goal : MVarId)
     (mvars : UnorderedArraySet MVarId) : NormM NormSeqResult := do
   let mvarsHashSet := .ofArray mvars.toArray
   let mut normSteps := #[
-    NormStep.reduceAllInGoal,
     NormStep.runPreSimpRules mvars,
     NormStep.unfold,
     NormStep.simp mvarsHashSet,
-    NormStep.runPostSimpRules mvars
-    NormStep.reduce  -- New step added here
+    NormStep.runPostSimpRules mvars,
+    NormStep.reduceAllInGoal
+      -- New step added here
   ]
   runNormSteps goal normSteps
     (by simp (config := { decide := true }) [normSteps])
 
--- New reduction step definition
-def NormStep.reduce : NormStep
-  | goal, _, _ => do
-    -- Attempt to reduce the goal using Lean.Meta.reduce
-    let reducedExpr ← goal.withContext do
-      let goalType ← goal.getType
-      Lean.Meta.reduce goalType
-    let goalExpr ← mkFreshExprMVar reducedExpr
-    goal.assign goalExpr
-    aesop_trace[steps] "Reduced goal using Lean.Meta.reduce to: {goalExpr}"
+
+    --check if the reduction goal is still the same
+    --replce with new function
+    --reduce everything even in hypothesis
+    -- fix the continue part
+    -- track if anything has reduce (boolean type)
+    -- measuring the normalisation part
+    -- use time function to calculate how long it takes
+    -- how measure the upside of this reduction (which part of existing aesop will become simpler)
+    -- decide if whmf and isdefEq is worth it
 
     -- Check if the reduction solved the goal or simplified it further
-    if ← goalExpr.mvarId!.isAssigned then
+    /-if ← goalExpr.mvarId!.isAssigned then
       return .proved #[(.normReduce, none)]
     else
-      return .changed goalExpr.mvarId! #[(.normReduce, none)]
+      return .changed goalExpr.mvarId! #[(.normReduce, none)]-/
 
 
 -- Returns true if the goal was solved by normalisation.
