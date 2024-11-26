@@ -368,6 +368,7 @@ def NormStep.simp (mvars : Std.HashSet MVarId) : NormStep
      for ldecl in ← getLCtx do
        if ldecl.isImplementationDetail then
          continue
+         --skips declarations marked as isImplementationDetail
        let type := ldecl.type
        let type ← reduceAll type
        let mut newLDecl := ldecl.setType type
@@ -378,6 +379,26 @@ def NormStep.simp (mvars : Std.HashSet MVarId) : NormStep
      let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) type
      goal.assign newGoal
      return newGoal.mvarId!
+
+  /-def reduceAllInGoal (goal : MVarId) : MetaM MVarId := do
+  goal.withContext do
+    withReducible do
+      let type ← goal.getType
+      let type ← reduceAll type
+      let mut newLCtx : LocalContext := {}
+      for ldecl in ← getLCtx do
+        let type := ldecl.type
+        let type ← reduceAll type
+        let mut newLDecl := ldecl.setType type
+        if let some val := ldecl.value? then
+          let val ← reduceAll val
+          newLDecl := newLDecl.setValue val
+        newLCtx := newLCtx.addDecl newLDecl
+      let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) type
+      goal.assign newGoal
+      return newGoal.mvarId!-/
+      --remove skip isimplementationDetails
+      --Includes all declarations, including implementation details, to the new local context.
 
   def NormStep.reduceAllInGoal : NormStep
     | goal, _, _ => do
@@ -404,6 +425,7 @@ partial def normalizeGoalMVar (goal : MVarId)
     --replce with new function
     --reduce everything even in hypothesis
     -- fix the continue part
+
     -- track if anything has reduce (boolean type)
     -- measuring the normalisation part
     -- use time function to calculate how long it takes
