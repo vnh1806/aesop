@@ -266,11 +266,12 @@ def normSimp (goal : MVarId) (goalMVars : Std.HashSet MVarId) :
     NormM (Option NormRuleResult) := do
   profilingRule .normSimp (wasSuccessful := λ _ => true) do
     checkSimp "norm simp" (mayCloseGoal := true) goal do
-      tryCatchRuntimeEx
-        (withNormTraceNode .normSimp do
+      try
+        withNormTraceNode .normSimp do
           withMaxHeartbeats (← read).options.maxSimpHeartbeats do
-            normSimpCore goal goalMVars)
-        (λ e => throwError "aesop: error in norm simp: {e.toMessageData}")
+            normSimpCore goal goalMVars
+      catch e =>
+        throwError "aesop: error in norm simp: {e.toMessageData}"
 
 def normUnfoldCore (goal : MVarId) : NormM (Option NormRuleResult) := do
   let unfoldRules := (← read).ruleSet.unfoldRules
@@ -286,11 +287,12 @@ def normUnfoldCore (goal : MVarId) : NormM (Option NormRuleResult) := do
 def normUnfold (goal : MVarId) : NormM (Option NormRuleResult) := do
   profilingRule .normUnfold (wasSuccessful := λ _ => true) do
     checkSimp "unfold simp" (mayCloseGoal := false) goal do
-      tryCatchRuntimeEx
-        (withNormTraceNode .normUnfold do
+      try
+        withNormTraceNode .normUnfold do
           withMaxHeartbeats (← read).options.maxUnfoldHeartbeats do
-            normUnfoldCore goal)
-        (λ e => throwError "aesop: error in norm unfold: {e.toMessageData}")
+            normUnfoldCore goal
+      catch e =>
+        throwError "aesop: error in norm unfold: {e.toMessageData}"
 
 inductive NormSeqResult where
   | proved (script : Array (DisplayRuleName × Option (Array Script.LazyStep)))
@@ -379,108 +381,120 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
       return .unchanged
     let r := (← normSimp goal mvars).map (.normSimp, ·)
     return optNormRuleResultToNormSeqResult r
-
--- New reduction step definition
-/-def NormStep.reduce : NormStep
-  | goal, _, _ => do
-    -- Retrieve the goal's type
-    let goalType ← goal.getType
-
-    -- Apply reduction to simplify the goal type
-    let reducedExpr ← Lean.Meta.reduce goalType
-
-    -- Check if the reduction changed the goal type
-    if reducedExpr == goalType then
-      -- No change after reduction, so the goal remains the same
-      aesop_trace[steps] "Reduction did not simplify the goal."
-      return .unchanged
-    else
-      -- If the type has changed, assign the new type to the goal
-      let newGoal ← goal.assign reducedExpr
-
-      -- Return the new goal without using a rule name
-      return .changed newGoal"""-/
+--NVU
 
 
-  def reduceAllInGoal (goal : MVarId) : MetaM MVarId := do
-   goal.withContext do
-   withReducible do
-     let type ← goal.getType
-     let type ← reduceAll type
-     let mut newLCtx : LocalContext := {}
-     for ldecl in ← getLCtx do
-       if ldecl.isImplementationDetail then
-         continue
-         --skips declarations marked as isImplementationDetail
-       let type := ldecl.type
-       let type ← reduceAll type
-       let mut newLDecl := ldecl.setType type
-       if let some val := ldecl.value? then
-         let val ← reduceAll val
-         newLDecl := newLDecl.setValue val
-       newLCtx := newLCtx.addDecl newLDecl
-     let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) type
-     goal.assign newGoal
-     return newGoal.mvarId!
-
-  /-def reduceAllInGoal (goal : MVarId) : MetaM MVarId := do
+def _root_.Aesop.reduceAllInGoal (goal : MVarId)
+  (skipProofs skipTypes skipImplicitArguments rpinf: Bool) : BaseM MVarId := do
   goal.withContext do
     withReducible do
       let type ← goal.getType
-      let type ← reduceAll type
+      let newType ←
+        if rpinf then
+          let r <- Aesop.rpinfRaw type
+          pure r.toExpr
+        else
+          reduce type skipImplicitArguments skipTypes skipProofs
+
+      let mut changed := newType != type -- Track if the goal or its context changes
       let mut newLCtx : LocalContext := {}
+
       for ldecl in ← getLCtx do
-        let type := ldecl.type
-        let type ← reduceAll type
-        let mut newLDecl := ldecl.setType type
-        if let some val := ldecl.value? then
-          let val ← reduceAll val
-          newLDecl := newLDecl.setValue val
-        newLCtx := newLCtx.addDecl newLDecl
-      let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) type
+        if ldecl.isImplementationDetail then
+          -- Directly add implementation details without modification
+          newLCtx := newLCtx.addDecl ldecl
+        else
+          -- Skip reducing types if the option is enabled
+          let type := ldecl.type
+          let newType ←
+            if rpinf then
+              let r <- Aesop.rpinfRaw type
+              pure r.toExpr
+            else
+              reduce type skipImplicitArguments skipTypes skipProofs
+          let mut newLDecl := ldecl.setType newType
+
+          -- Check if the type has changed
+          if newType != type then
+            changed := true
+
+          -- Reduce the value if it exists and skip proofs if needed
+          if let some val := ldecl.value? then
+            let newVal ←
+              if rpinf then
+                let r <- Aesop.rpinfRaw val
+                pure r.toExpr
+              else
+                reduce val skipImplicitArguments skipTypes skipProofs
+            if newVal != val then
+              changed := true
+            newLDecl := newLDecl.setValue newVal
+
+          -- Add the (potentially updated) declaration to the new local context
+          newLCtx := newLCtx.addDecl newLDecl
+
+      -- If nothing has changed, return the original goal without creating a new one
+      if not changed then
+        return goal
+
+      -- Otherwise, create a new goal with the updated context and type
+      let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) newType
       goal.assign newGoal
-      return newGoal.mvarId!-/
-      --remove skip isimplementationDetails
-      --Includes all declarations, including implementation details, to the new local context.
+      return newGoal.mvarId!
 
-  def NormStep.reduceAllInGoal : NormStep
-    | goal, _, _ => do
-      let newGoal ← liftMetaM do Aesop.reduceAllInGoal goal
-      return .changed newGoal #[]
 
+
+
+def reduceAllInGoal : NormStep
+  | goal, _, _ => do
+      let rpinf := true
+      let skipProofs := false
+      let skipTypes := false
+      let skipImplicitArguments := false
+      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal skipProofs skipTypes skipImplicitArguments rpinf)
+      trace[debug] "Execution time for `reduceAllInGoal`: {time.printAsMillis}"
+      modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
+      if newGoal == goal then
+        return .unchanged
+      else
+        return .changed newGoal #[]
+
+end NormStep
+-- Aesop branch: rpinf-precomp
+-- squash commit (rebase -i)
+-- make new branch
+-- git cherry-pick <your commit>
+-- discard changes with git restore before rebranching
+
+
+  /-def NormStep.reduceAllInGoal : NormStep
+  | goal, _, _ => do
+      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal false false false)
+      trace[debug] "Execution time for reduceAllInGoal: {time.printAsMillis}"
+      modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
+      if newGoal == goal then
+        return .unchanged
+      else
+        return .changed newGoal #[]
+
+upstream/rpinf-precomp in case
+import precomp rpinf
+--
+-/
+
+--NVU
 partial def normalizeGoalMVar (goal : MVarId)
     (mvars : UnorderedArraySet MVarId) : NormM NormSeqResult := do
   let mvarsHashSet := .ofArray mvars.toArray
   let mut normSteps := #[
-
+    NormStep.reduceAllInGoal,
     NormStep.runPreSimpRules mvars,
     NormStep.unfold,
     NormStep.simp mvarsHashSet,
-    NormStep.runPostSimpRules mvars,
-    NormStep.reduceAllInGoal
-      -- New step added here
+    NormStep.runPostSimpRules mvars --NVU
   ]
   runNormSteps goal normSteps
     (by simp (config := { decide := true }) [normSteps])
-
-
-    --check if the reduction goal is still the same
-    --replce with new function
-    --reduce everything even in hypothesis
-    -- fix the continue part
-
-    -- track if anything has reduce (boolean type)
-    -- measuring the normalisation part
-    -- use time function to calculate how long it takes
-    -- how measure the upside of this reduction (which part of existing aesop will become simpler)
-    -- decide if whmf and isdefEq is worth it
-
-    -- Check if the reduction solved the goal or simplified it further
-    /-if ← goalExpr.mvarId!.isAssigned then
-      return .proved #[(.normReduce, none)]
-    else
-      return .changed goalExpr.mvarId! #[(.normReduce, none)]-/
-
 
 -- Returns true if the goal was solved by normalisation.
 def normalizeGoalIfNecessary (gref : GoalRef) [Aesop.Queue Q] :
