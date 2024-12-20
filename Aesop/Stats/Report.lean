@@ -38,6 +38,7 @@ def default : StatsReport := λ statsArray => Id.run do
   let mut ruleSelection := 0
   let mut script := 0
   let mut timedReduceAllInGoal := 0
+  let mut timedReduceAllInGoal := 0
   let mut ruleStats : Std.HashMap DisplayRuleName RuleStatsTotals := ∅
   for stats in statsArray do
     let stats := stats.stats

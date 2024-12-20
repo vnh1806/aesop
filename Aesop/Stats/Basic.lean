@@ -68,6 +68,7 @@ structure Stats where
   scriptGenerated : ScriptGenerated
   ruleStats : Array RuleStats
   reduceAllInGoal : Nanos
+  reduceAllInGoal : Nanos
   deriving Inhabited
 
 namespace Stats
