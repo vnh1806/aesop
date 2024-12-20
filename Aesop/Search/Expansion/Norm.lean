@@ -266,11 +266,12 @@ def normSimp (goal : MVarId) (goalMVars : Std.HashSet MVarId) :
     NormM (Option NormRuleResult) := do
   profilingRule .normSimp (wasSuccessful := λ _ => true) do
     checkSimp "norm simp" (mayCloseGoal := true) goal do
-      tryCatchRuntimeEx
-        (withNormTraceNode .normSimp do
+      try
+        withNormTraceNode .normSimp do
           withMaxHeartbeats (← read).options.maxSimpHeartbeats do
-            normSimpCore goal goalMVars)
-        (λ e => throwError "aesop: error in norm simp: {e.toMessageData}")
+            normSimpCore goal goalMVars
+      catch e =>
+        throwError "aesop: error in norm simp: {e.toMessageData}"
 
 def normUnfoldCore (goal : MVarId) : NormM (Option NormRuleResult) := do
   let unfoldRules := (← read).ruleSet.unfoldRules
@@ -286,11 +287,12 @@ def normUnfoldCore (goal : MVarId) : NormM (Option NormRuleResult) := do
 def normUnfold (goal : MVarId) : NormM (Option NormRuleResult) := do
   profilingRule .normUnfold (wasSuccessful := λ _ => true) do
     checkSimp "unfold simp" (mayCloseGoal := false) goal do
-      tryCatchRuntimeEx
-        (withNormTraceNode .normUnfold do
+      try
+        withNormTraceNode .normUnfold do
           withMaxHeartbeats (← read).options.maxUnfoldHeartbeats do
-            normUnfoldCore goal)
-        (λ e => throwError "aesop: error in norm unfold: {e.toMessageData}")
+            normUnfoldCore goal
+      catch e =>
+        throwError "aesop: error in norm unfold: {e.toMessageData}"
 
 inductive NormSeqResult where
   | proved (script : Array (DisplayRuleName × Option (Array Script.LazyStep)))
@@ -409,9 +411,11 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
      let type ← reduceAll type
      let mut newLCtx : LocalContext := {}
      for ldecl in ← getLCtx do
-       if ldecl.isImplementationDetail then
-         continue
-         --skips declarations marked as isImplementationDetail
+
+      if ldecl.isImplementationDetail then
+        newLCtx := newLCtx.addDecl ldecl
+      else
+
        let type := ldecl.type
        let type ← reduceAll type
        let mut newLDecl := ldecl.setType type
@@ -422,26 +426,6 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
      let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) type
      goal.assign newGoal
      return newGoal.mvarId!
-
-  /-def reduceAllInGoal (goal : MVarId) : MetaM MVarId := do
-  goal.withContext do
-    withReducible do
-      let type ← goal.getType
-      let type ← reduceAll type
-      let mut newLCtx : LocalContext := {}
-      for ldecl in ← getLCtx do
-        let type := ldecl.type
-        let type ← reduceAll type
-        let mut newLDecl := ldecl.setType type
-        if let some val := ldecl.value? then
-          let val ← reduceAll val
-          newLDecl := newLDecl.setValue val
-        newLCtx := newLCtx.addDecl newLDecl
-      let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) type
-      goal.assign newGoal
-      return newGoal.mvarId!-/
-      --remove skip isimplementationDetails
-      --Includes all declarations, including implementation details, to the new local context.
 
   def NormStep.reduceAllInGoal : NormStep
     | goal, _, _ => do
@@ -464,22 +448,16 @@ partial def normalizeGoalMVar (goal : MVarId)
     (by simp (config := { decide := true }) [normSteps])
 
 
-    --check if the reduction goal is still the same
-    --replce with new function
-    --reduce everything even in hypothesis
-    -- fix the continue part
+def timedReduceAllInGoal (goal : MVarId) : NormM MVarId := do
+  let (result, time) <- Aesop.time (reduceAllInGoal goal)
+  -- Log the execution time in milliseconds
+  logInfo m!"Execution time for reduceAllInGoal: {time} ms"
+  -- Return the result
+  return result
 
-    -- track if anything has reduce (boolean type)
-    -- measuring the normalisation part
-    -- use time function to calculate how long it takes
-    -- how measure the upside of this reduction (which part of existing aesop will become simpler)
-    -- decide if whmf and isdefEq is worth it
-
-    -- Check if the reduction solved the goal or simplified it further
-    /-if ← goalExpr.mvarId!.isAssigned then
-      return .proved #[(.normReduce, none)]
-    else
-      return .changed goalExpr.mvarId! #[(.normReduce, none)]-/
+  -- modify runtime function to calculate all the Reduceallingoal runtime
+  -- collect the runtime in Stats/Report
+  -- decide if isdefEq is worth it (compare woth aesop)
 
 
 -- Returns true if the goal was solved by normalisation.
