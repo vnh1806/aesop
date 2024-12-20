@@ -26,20 +26,26 @@ def runTest : IO Unit := do
 abbrev Foo := Nat
 
 run_meta show MetaM Unit from do
- sorry
+  let goal ← Lean.Meta.mkFreshExprMVar (mkConst `Nat)
+  logInfo m!"Generated goal: {goal}"
+
 example : Foo := by
   run_tac do
     let e <- Elab.Tactic.getMainTarget
     let e' <- reduceAll e
     logInfo e'
+  exact 0
 
 
-def test1 (a b : Nat) : Bool :=
-  a >= b && (a + 2 >= b + 2)
+abbrev Bopo := Bool
+
 run_meta show MetaM Unit from do
+  let goal ← Lean.Meta.mkFreshExprMVar (mkConst `Bool)
+  logInfo m!"Generated goal: {goal}"
 
-example : test1 := by
+example : Bopo := by
   run_tac do
     let e <- Elab.Tactic.getMainTarget
     let e' <- reduceAll e
     logInfo e'
+  exact true
