@@ -82,6 +82,7 @@ protected def empty : Stats where
   script := 0
   scriptGenerated := .none
   reduceAllInGoal := 0 --NVU
+  reduceAllInGoal := 0 --NVU
   ruleStats := #[]
 
 instance : EmptyCollection Stats :=
