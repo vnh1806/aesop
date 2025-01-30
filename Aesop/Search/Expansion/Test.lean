@@ -1,7 +1,7 @@
 import Aesop.Search.Expansion.Norm
 import Lean.Meta
 open Lean Meta
-
+--NVU
 /-
 def setupGoal : IO MVarId := do
   let goalType := mkConst`Nat
@@ -48,4 +48,4 @@ example : Bopo := by
     let e <- Elab.Tactic.getMainTarget
     let e' <- reduceAll e
     logInfo e'
-  exact true
+  exact false
