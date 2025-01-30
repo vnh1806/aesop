@@ -998,9 +998,12 @@ theorem getLast?_append_of_ne_nil (l₁ : List α) : ∀ {l₂ : List α} (_ : l
   | [], hl₂ => by aesop
   | b :: l₂, _ => by aesop
 
+set_option trace.aesop.stats true in
 theorem getLast?_append' {l₁ l₂ : List α} {x : α} (h : x ∈ l₂.getLast?) :
   x ∈ (l₁ ++ l₂).getLast? := by
   aesop (add 1% cases List)
+
+
 
 end getLast?
 

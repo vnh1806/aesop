@@ -80,7 +80,7 @@ protected def empty : Stats where
   ruleSelection := 0
   script := 0
   scriptGenerated := .none
-  reduceAllInGoal := 0
+  reduceAllInGoal := 0 --NVU
   ruleStats := #[]
 
 instance : EmptyCollection Stats :=
@@ -163,6 +163,7 @@ def trace (p : Stats) (opt : TraceOption) : CoreM Unit := do
   aesop_trace![opt] "Rule set construction: {p.ruleSetConstruction.printAsMillis}"
   aesop_trace![opt] "Script generation: {p.script.printAsMillis}"
   aesop_trace![opt] "Script generated: {p.scriptGenerated.toString}"
+  aesop_trace![opt] "ReduceAllInGoal: {p.reduceAllInGoal.nanos}"
   withConstAesopTraceNode opt (collapsed := false)
       (return m!"Search: {p.search.printAsMillis}") do
     aesop_trace![opt] "Rule selection: {p.ruleSelection.printAsMillis}"
