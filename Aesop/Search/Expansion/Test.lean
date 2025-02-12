@@ -34,10 +34,10 @@ example : Foo := by
     let e <- Elab.Tactic.getMainTarget
     let e' <- reduceAll e
     logInfo e'
-  exact 0
+  exact 1
 
 
-abbrev Bopo := Bool
+abbrev Bopo := Nat
 
 run_meta show MetaM Unit from do
   let goal ← Lean.Meta.mkFreshExprMVar (mkConst `Bool)
@@ -48,4 +48,4 @@ example : Bopo := by
     let e <- Elab.Tactic.getMainTarget
     let e' <- reduceAll e
     logInfo e'
-  exact false
+  exact 5

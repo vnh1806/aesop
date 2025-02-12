@@ -384,7 +384,7 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
 --NVU
 
 
-def reduceAllInGoal (goal : MVarId) : MetaM MVarId := do
+/-def reduceAllInGoal (goal : MVarId) : MetaM MVarId := do --opition
   goal.withContext do
     withReducible do
       let type ← goal.getType
@@ -418,24 +418,77 @@ def reduceAllInGoal (goal : MVarId) : MetaM MVarId := do
       -- Otherwise, create a new goal with the updated context and type
       let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) newType
       goal.assign newGoal
-      return newGoal.mvarId!
-    --find different reduction method like skipproof,   ... and  run experiments
+      return newGoal.mvarId!-/
+    --find different reduction method like skipproof, skiptypes, skipimplicisarguement  ... and  run experiments
+def reduceAllInGoal (goal : MVarId)
+  (skipProofs skipTypes skipImplicitArguments : Bool) : MetaM MVarId := do
+  goal.withContext do
+    withReducible do
+      let type ← goal.getType
+      let newType ← reduce type skipImplicitArguments skipTypes skipProofs
+      let mut changed := false -- Track if the goal or its context changes
+      let mut newLCtx : LocalContext := {}
 
-def measureExecutionTime {α} (action : MetaM α) : MetaM (α × Nat) := do
-  let start ← IO.monoMsNow
-  let result ← action
-  let endTime ← IO.monoMsNow
-  let elapsed := endTime - start
-  return (result, elapsed)
+      for ldecl in ← getLCtx do
+        if ldecl.isImplementationDetail then
+          -- Directly add implementation details without modification
+          newLCtx := newLCtx.addDecl ldecl
+        else
+          -- Skip reducing types if the option is enabled
+          let type := ldecl.type
+          let newType ← reduce type skipImplicitArguments skipTypes skipProofs
+          let mut newLDecl := ldecl.setType newType
+
+          -- Check if the type has changed
+          if newType != type then
+            changed := true
+
+          -- Reduce the value if it exists and skip proofs if needed
+          if let some val := ldecl.value? then
+            let newVal ← reduce val skipImplicitArguments skipTypes skipProofs
+            if newVal != val then
+              changed := true
+            newLDecl := newLDecl.setValue newVal
+
+          -- Add the (potentially updated) declaration to the new local context
+          newLCtx := newLCtx.addDecl newLDecl
+
+      -- If nothing has changed, return the original goal without creating a new one
+      if not changed && newType == type then
+        return goal
+
+      -- Otherwise, create a new goal with the updated context and type
+      let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) newType
+      goal.assign newGoal
+      return newGoal.mvarId!
+
+
 
 def NormStep.reduceAllInGoal : NormStep
   | goal, _, _ => do
-      let (newGoal, time) ← measureExecutionTime (Aesop.reduceAllInGoal goal)
-      IO.println s!"Execution time: {time} ms"
+      let skipProofs := false
+      let skipTypes := false
+      let skipImplicitArguments := false
+      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal skipProofs skipTypes skipImplicitArguments)
+      trace[debug] "Execution time for `reduceAllInGoal`: {time.printAsMillis}"
+      modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
       if newGoal == goal then
         return .unchanged
       else
         return .changed newGoal #[]
+
+  /-def NormStep.reduceAllInGoal : NormStep
+  | goal, _, _ => do
+      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal false false false)
+      trace[debug] "Execution time for reduceAllInGoal: {time.printAsMillis}"
+      modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
+      if newGoal == goal then
+        return .unchanged
+      else
+        return .changed newGoal #[]
+
+-/
+
   -- track if the goal was solved by normalisation
   -- better track inside the function itself
 --NVU
@@ -443,29 +496,14 @@ partial def normalizeGoalMVar (goal : MVarId)
     (mvars : UnorderedArraySet MVarId) : NormM NormSeqResult := do
   let mvarsHashSet := .ofArray mvars.toArray
   let mut normSteps := #[
-
+    NormStep.reduceAllInGoal,
     NormStep.runPreSimpRules mvars,
     NormStep.unfold,
     NormStep.simp mvarsHashSet,
-    NormStep.runPostSimpRules mvars,
-    NormStep.reduceAllInGoal --NVU
+    NormStep.runPostSimpRules mvars --NVU
   ]
   runNormSteps goal normSteps
     (by simp (config := { decide := true }) [normSteps])
-
-
-def timedReduceAllInGoal (goal : MVarId) : MetaM MVarId := do
-  -- Measure execution time for `reduceAllInGoal`
-  let (result, elapsedTime) ← time (reduceAllInGoal goal)
-  -- Format elapsed time as milliseconds
-  let elapsedTimeMillis := elapsedTime.printAsMillis ++ "ms"
-  -- Log the formatted time
-  logInfo m!"Execution time for `reduceAllInGoal`: {elapsedTimeMillis}"
-  -- Return the result of `reduceAllInGoal`
-  return result
-
-
-
 
 -- Returns true if the goal was solved by normalisation.
 def normalizeGoalIfNecessary (gref : GoalRef) [Aesop.Queue Q] :
