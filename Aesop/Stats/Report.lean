@@ -150,4 +150,6 @@ where
 def scripts := scriptsCore
 def scriptsNontrivial := scriptsCore (nontrivialOnly := true)
 
+--add report stats here for reduction
+
 end Aesop.StatsReport
