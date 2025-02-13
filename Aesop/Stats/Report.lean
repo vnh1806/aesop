@@ -6,6 +6,7 @@ Authors: Jannis Limperg
 
 import Aesop.Percent
 import Aesop.Stats.Extension
+import Aesop.Stats.Basic -- Add this import to resolve StatsT
 
 open Lean
 
@@ -147,10 +148,13 @@ where
     let pct95 := sortedPercentileD ⟨0.95⟩ 0 ns
     let pct99 := sortedPercentileD ⟨0.99⟩ 0 ns
     f!"{total} (min = {min}, avg = {average}, median = {median}, 80pct = {pct80}, 95pct = {pct95}, 99pct = {pct99}, max = {max})"
-
-def scripts := scriptsCore
-def scriptsNontrivial := scriptsCore (nontrivialOnly := true)
-
+/-
+def reportReduceAllInGoal : StatsT MetaM Unit := do
+  if ← isStatsCollectionOrTracingEnabled then
+    let stats ← readStatsRef
+    let timeTaken := stats.reduceAllInGoal
+    let report := f!"ReduceAllInGoal execution time: {timeTaken.printAsMillis}"
+    logInfo report-/
 --add report stats here for reduction
 
 end Aesop.StatsReport

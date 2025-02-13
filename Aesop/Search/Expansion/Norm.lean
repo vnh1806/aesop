@@ -487,10 +487,19 @@ def NormStep.reduceAllInGoal : NormStep
       else
         return .changed newGoal #[]
 
+  --change reduce x yz to rpinf
+  def rpinf (e : Expr) : BaseM RPINF :=
+  withConstAesopTraceNode .rpinf (return m!"rpinf") do
+    aesop_trace[rpinf] "input:{indentExpr e}"
+    let e ← rpinfRaw e
+    let hash := pinfHash e.toExpr
+    aesop_trace[rpinf] "result hash: {hash}"
+    aesop_trace[rpinf] "resut:{indentExpr e.toExpr}"
+    return { e with hash }
+
+
 -/
 
-  -- track if the goal was solved by normalisation
-  -- better track inside the function itself
 --NVU
 partial def normalizeGoalMVar (goal : MVarId)
     (mvars : UnorderedArraySet MVarId) : NormM NormSeqResult := do
