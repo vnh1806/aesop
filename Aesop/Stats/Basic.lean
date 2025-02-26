@@ -68,7 +68,6 @@ structure Stats where
   scriptGenerated : ScriptGenerated
   ruleStats : Array RuleStats
   reduceAllInGoal : Nanos
-  reduceAllInGoal : Nanos
   deriving Inhabited
 
 namespace Stats
@@ -81,7 +80,6 @@ protected def empty : Stats where
   ruleSelection := 0
   script := 0
   scriptGenerated := .none
-  reduceAllInGoal := 0 --NVU
   reduceAllInGoal := 0 --NVU
   ruleStats := #[]
 
