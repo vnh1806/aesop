@@ -420,16 +420,33 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
       goal.assign newGoal
       return newGoal.mvarId!-/
     --find different reduction method like skipproof, skiptypes, skipimplicisarguement  ... and  run experiments
-def reduceAllInGoal (goal : MVarId)
-  (skipProofs skipTypes skipImplicitArguments : Bool) : MetaM MVarId := do
+def _root_.Aesop.reduceAllInGoal (goal : MVarId)
+  (skipProofs skipTypes skipImplicitArguments rpinf: Bool) : BaseM MVarId := do
   goal.withContext do
     withReducible do
       let type ← goal.getType
-      let newType ← reduce type skipImplicitArguments skipTypes skipProofs
+      let newType ←
+        if rpinf then
+          let r <- Aesop.rpinf type
+          pure r.toExpr
+        else
+          reduce type skipImplicitArguments skipTypes skipProofs
+
       let mut changed := false -- Track if the goal or its context changes
       let mut newLCtx : LocalContext := {}
 
       for ldecl in ← getLCtx do
+        if rpinf then
+          newLCtx := newLCtx.addDecl ldecl
+        else
+          let type := ldecl.type
+          let newType ← reduce type skipImplicitArguments skipTypes skipProofs
+          let mut newLDecl := ldecl.setType newType
+        -- write a rpinf fuintion hier
+        -- push this version to repo, modify mathlib lakefile.lean to the correct version
+        -- run lake update aesop in terminal
+        -- in lakefile, write weak.aesop.collectStats
+        -- import mathlib, in Maathlib rule folder, write #aesop_stats
         if ldecl.isImplementationDetail then
           -- Directly add implementation details without modification
           newLCtx := newLCtx.addDecl ldecl
@@ -464,18 +481,21 @@ def reduceAllInGoal (goal : MVarId)
 
 
 
-def NormStep.reduceAllInGoal : NormStep
+def reduceAllInGoal : NormStep
   | goal, _, _ => do
+      let rpinf := true
       let skipProofs := false
       let skipTypes := false
       let skipImplicitArguments := false
-      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal skipProofs skipTypes skipImplicitArguments)
+      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal skipProofs skipTypes skipImplicitArguments rpinf)
       trace[debug] "Execution time for `reduceAllInGoal`: {time.printAsMillis}"
       modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
       if newGoal == goal then
         return .unchanged
       else
         return .changed newGoal #[]
+
+end NormStep
 
   /-def NormStep.reduceAllInGoal : NormStep
   | goal, _, _ => do
@@ -505,6 +525,7 @@ partial def normalizeGoalMVar (goal : MVarId)
     (mvars : UnorderedArraySet MVarId) : NormM NormSeqResult := do
   let mvarsHashSet := .ofArray mvars.toArray
   let mut normSteps := #[
+    NormStep.reduceAllInGoal,
     NormStep.runPreSimpRules mvars,
     NormStep.unfold,
     NormStep.simp mvarsHashSet,

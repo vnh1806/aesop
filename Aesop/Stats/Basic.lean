@@ -241,7 +241,7 @@ def profilingRule (rule : DisplayRuleName) (wasSuccessful : α → Bool) :
 
 def modifyCurrentStats (f : Stats → Stats) : m Unit := do
   if ← isStatsCollectionOrTracingEnabled then
-    (← readStatsRef).modify f
+    modifyStats f
   --use in the norm file to modify the time calculation
 
 def recordScriptGenerated (x : ScriptGenerated) : m Unit := do

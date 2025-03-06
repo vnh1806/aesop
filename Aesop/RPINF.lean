@@ -56,7 +56,7 @@ where
       lctx := lctx.modifyLocalDecl fvarId λ _ => ldecl
     withLCtx lctx (← getLocalInstances) k
 
-def rpinf (e : Expr) : BaseM RPINF :=
+ def rpinf (e : Expr) : BaseM RPINF :=
   withConstAesopTraceNode .rpinf (return m!"rpinf") do
     aesop_trace[rpinf] "input:{indentExpr e}"
     let e ← rpinfRaw e
