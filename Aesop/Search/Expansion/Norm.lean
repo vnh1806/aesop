@@ -384,19 +384,19 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
 --NVU
 
 
-/-def _root_.Aesop.reduceAllInGoal (goal : MVarId)
+def _root_.Aesop.reduceAllInGoal (goal : MVarId)
   (skipProofs skipTypes skipImplicitArguments rpinf: Bool) : BaseM MVarId := do
   goal.withContext do
     withReducible do
       let type ← goal.getType
       let newType ←
         if rpinf then
-          let r <- Aesop.rpinf type
+          let r <- Aesop.rpinfRaw type
           pure r.toExpr
         else
           reduce type skipImplicitArguments skipTypes skipProofs
 
-      let mut changed := false -- Track if the goal or its context changes
+      let mut changed := newType != type -- Track if the goal or its context changes
       let mut newLCtx : LocalContext := {}
 
       for ldecl in ← getLCtx do
@@ -408,7 +408,7 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
           let type := ldecl.type
           let newType ←
             if rpinf then
-              let r <- Aesop.rpinf type
+              let r <- Aesop.rpinfRaw type
               pure r.toExpr
             else
               reduce type skipImplicitArguments skipTypes skipProofs
@@ -422,7 +422,7 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
           if let some val := ldecl.value? then
             let newVal ←
               if rpinf then
-                let r <- Aesop.rpinf val
+                let r <- Aesop.rpinfRaw val
                 pure r.toExpr
               else
                 reduce val skipImplicitArguments skipTypes skipProofs
@@ -434,78 +434,10 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
           newLCtx := newLCtx.addDecl newLDecl
 
       -- If nothing has changed, return the original goal without creating a new one
-      if not changed && newType == type then
+      if not changed then
         return goal
 
       -- Otherwise, create a new goal with the updated context and type
-      let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) newType
-      goal.assign newGoal
-      return newGoal.mvarId!-/
-def processExpr (e : Expr)
-  (skipImplicitArguments skipTypes skipProofs rpinf : Bool)
-  (seen : Std.HashSet Expr) : BaseM (Expr × Std.HashSet Expr) := do
-  let iterationLimit := 10 -- set the iterations limit
-  let mut current := e
-  let mut i := 0
-  let mut localSeen := seen
-
-  -- If this expression has been seen before, return immediately to avoid infinite loops
-  if seen.contains e then return (e, seen)
-
-  localSeen := localSeen.insert e -- Add the initial expression to the seen set
-
-  while i < iterationLimit do
-    let newExpr ←
-      if rpinf then
-        let r ← Aesop.rpinf current
-        pure r.toExpr
-      else
-        reduce current skipImplicitArguments skipTypes skipProofs
-
-    -- Check if the expression has changed
-    if newExpr == current ∨ localSeen.contains newExpr then
-      break -- If there is no change or it has been seen before, stop the loop
-
-    current := newExpr
-    localSeen := localSeen.insert newExpr
-    i := i + 1
-
-  return (current, localSeen)
-
-
-def _root_.Aesop.reduceAllInGoal (goal : MVarId)
-  (skipProofs skipTypes skipImplicitArguments rpinf: Bool) : BaseM MVarId := do
-  goal.withContext do
-    withReducible do
-      let globalIterationLimit := 50 -- Global iteration limit
-      let mut iterationCount := 0
-      let seenExprs : Std.HashSet Expr := {} -- Use an immutable variable, updated manually
-      let (newType, seenExprs') ← processExpr (← goal.getType) skipImplicitArguments skipTypes skipProofs rpinf seenExprs
-      let mut changed := false
-      let mut newLCtx : LocalContext := {}
-
-      for ldecl in ← getLCtx do
-        if iterationCount > globalIterationLimit then
-          throwError "Aesop: Maximum normalisation iterations reached globally."
-
-        if ldecl.isImplementationDetail then
-          newLCtx := newLCtx.addDecl ldecl
-        else
-          let (newType, seenExprs'') ← processExpr ldecl.type skipImplicitArguments skipTypes skipProofs rpinf seenExprs'
-          let mut newLDecl := ldecl.setType newType
-          if newType != ldecl.type then changed := true
-
-          if let some val := ldecl.value? then
-            let (newVal, seenExprs''') ← processExpr val skipImplicitArguments skipTypes skipProofs rpinf seenExprs''
-            if newVal != val then changed := true
-            newLDecl := newLDecl.setValue newVal
-
-          newLCtx := newLCtx.addDecl newLDecl
-          iterationCount := iterationCount + 1
-
-      if not changed && newType == (← goal.getType) then
-        return goal
-
       let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) newType
       goal.assign newGoal
       return newGoal.mvarId!
@@ -528,6 +460,12 @@ def reduceAllInGoal : NormStep
         return .changed newGoal #[]
 
 end NormStep
+-- Aesop branch: rpinf-precomp
+-- squash commit (rebase -i)
+-- make new branch
+-- git cherry-pick <your commit>
+-- discard changes with git restore before rebranching
+
 
   /-def NormStep.reduceAllInGoal : NormStep
   | goal, _, _ => do

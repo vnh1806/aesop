@@ -18,7 +18,7 @@ where
     withIncRecDepth do
     checkCache e λ _ => do
       if ← isProof e then
-        return .mdata (mdataSetIsProof {}) e
+        return  e
       let e ← whnf e
       match e with
       | .app .. =>
