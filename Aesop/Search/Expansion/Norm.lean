@@ -461,10 +461,11 @@ def reduceAllInGoal : NormStep
 
 end NormStep
 -- Aesop branch: rpinf-precomp
--- squash commit (rebase -i)
 -- make new branch
 -- git cherry-pick <your commit>
 -- discard changes with git restore before rebranching
+-- upstream/rpinf-precomp in case
+-- import precomp rpinf
 
 
   /-def NormStep.reduceAllInGoal : NormStep
@@ -476,9 +477,6 @@ end NormStep
         return .unchanged
       else
         return .changed newGoal #[]
-
-upstream/rpinf-precomp in case
-import precomp rpinf
 --
 -/
 
