@@ -461,7 +461,6 @@ def reduceAllInGoal : NormStep
 
 end NormStep
 -- Aesop branch: rpinf-precomp
-<<<<<<< HEAD
 -- make new branch
 -- git cherry-pick <your commit>
 -- discard changes with git restore before rebranching
