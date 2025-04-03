@@ -14,6 +14,7 @@ import Aesop.Search.RuleSelection
 import Aesop.Search.SearchM
 import Aesop.Tree.State
 import Batteries.Lean.HashSet
+import AesopPrecomp.RPINF
 
 open Lean Lean.Meta Aesop.Script
 
@@ -396,7 +397,8 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
         else
           reduce type skipImplicitArguments skipTypes skipProofs
 
-      let mut changed := newType != type -- Track if the goal or its context changes
+      let mut changed :=  !pinfEq type newType
+        --add option if rpinf is enabled then run pinfEq else use the old method
       let mut newLCtx : LocalContext := {}
 
       for ldecl in ← getLCtx do
@@ -415,7 +417,7 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
           let mut newLDecl := ldecl.setType newType
 
           -- Check if the type has changed
-          if newType != type then
+          if  !pinfEq type newType then
             changed := true
 
           -- Reduce the value if it exists and skip proofs if needed
@@ -426,7 +428,7 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
                 pure r.toExpr
               else
                 reduce val skipImplicitArguments skipTypes skipProofs
-            if newVal != val then
+            if  !pinfEq val newVal then
               changed := true
             newLDecl := newLDecl.setValue newVal
 
@@ -440,8 +442,7 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
       -- Otherwise, create a new goal with the updated context and type
       let newGoal ← mkFreshExprMVarAt newLCtx (← getLocalInstances) newType
       goal.assign newGoal
-      return newGoal.mvarId!
-
+      return newGoal.mvarId!--write a function
 
 
 
