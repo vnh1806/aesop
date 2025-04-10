@@ -417,8 +417,7 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
           let mut newLDecl := ldecl.setType newType
 
           -- Check if the type has changed
-          if newType != type then
-            changed := true
+          changed := changed || if rpinf then !pinfEq type newType else newType != type
 
           -- Reduce the value if it exists and skip proofs if needed
           if let some val := ldecl.value? then
@@ -428,8 +427,9 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
                 pure r.toExpr
               else
                 reduce val skipImplicitArguments skipTypes skipProofs
-            if newVal != val then
-              changed := true
+            changed := changed || if rpinf then !pinfEq val newVal else newVal != val
+
+
             newLDecl := newLDecl.setValue newVal
 
           -- Add the (potentially updated) declaration to the new local context
@@ -448,9 +448,9 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
 
 def reduceAllInGoal : NormStep
   | goal, _, _ => do
-      let rpinf := true
+      let rpinf := false
       let skipProofs := false
-      let skipTypes := false
+      let skipTypes := true
       let skipImplicitArguments := false
       let (newGoal, time) ← time (Aesop.reduceAllInGoal goal skipProofs skipTypes skipImplicitArguments rpinf)
       trace[debug] "Execution time for `reduceAllInGoal`: {time.printAsMillis}"

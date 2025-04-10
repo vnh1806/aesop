@@ -7,7 +7,7 @@ Authors: Jannis Limperg
 -- commit a945b3769cb82bc238ee004b4327201a6864e7e0
 
 import Aesop
-
+set_option trace.aesop.stats true
 set_option aesop.collectStats true
 
 -- We use this constant to 'prove' theorems which Aesop can't solve. We don't
