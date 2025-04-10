@@ -397,7 +397,7 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
         else
           reduce type skipImplicitArguments skipTypes skipProofs
 
-      let mut changed :=  !pinfEq type newType
+      let mut changed :=  if rpinf then !pinfEq type newType else newType != type
         --add option if rpinf is enabled then run pinfEq else use the old method
       let mut newLCtx : LocalContext := {}
 
@@ -417,7 +417,7 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
           let mut newLDecl := ldecl.setType newType
 
           -- Check if the type has changed
-          if  !pinfEq type newType then
+          if newType != type then
             changed := true
 
           -- Reduce the value if it exists and skip proofs if needed
@@ -428,7 +428,7 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
                 pure r.toExpr
               else
                 reduce val skipImplicitArguments skipTypes skipProofs
-            if  !pinfEq val newVal then
+            if newVal != val then
               changed := true
             newLDecl := newLDecl.setValue newVal
 
