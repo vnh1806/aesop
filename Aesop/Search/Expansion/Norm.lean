@@ -15,6 +15,7 @@ import Aesop.Search.SearchM
 import Aesop.Tree.State
 import Batteries.Lean.HashSet
 import AesopPrecomp.RPINF
+import AesopPrecomp.RPINF
 
 open Lean Lean.Meta Aesop.Script
 
@@ -269,7 +270,12 @@ def normSimp (goal : MVarId) (goalMVars : Std.HashSet MVarId) :
     checkSimp "norm simp" (mayCloseGoal := true) goal do
       try
         withNormTraceNode .normSimp do
+      try
+        withNormTraceNode .normSimp do
           withMaxHeartbeats (← read).options.maxSimpHeartbeats do
+            normSimpCore goal goalMVars
+      catch e =>
+        throwError "aesop: error in norm simp: {e.toMessageData}"
             normSimpCore goal goalMVars
       catch e =>
         throwError "aesop: error in norm simp: {e.toMessageData}"
@@ -290,7 +296,12 @@ def normUnfold (goal : MVarId) : NormM (Option NormRuleResult) := do
     checkSimp "unfold simp" (mayCloseGoal := false) goal do
       try
         withNormTraceNode .normUnfold do
+      try
+        withNormTraceNode .normUnfold do
           withMaxHeartbeats (← read).options.maxUnfoldHeartbeats do
+            normUnfoldCore goal
+      catch e =>
+        throwError "aesop: error in norm unfold: {e.toMessageData}"
             normUnfoldCore goal
       catch e =>
         throwError "aesop: error in norm unfold: {e.toMessageData}"
@@ -462,7 +473,29 @@ def reduceAllInGoal : NormStep
 
 end NormStep
 -- Aesop branch: rpinf-precomp
-<<<<<<< HEAD
+-- squash commit (rebase -i)
+-- make new branch
+-- git cherry-pick <your commit>
+-- discard changes with git restore before rebranching
+
+
+  /-def NormStep.reduceAllInGoal : NormStep
+  | goal, _, _ => do
+      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal false false false)
+      trace[debug] "Execution time for reduceAllInGoal: {time.printAsMillis}"
+      modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
+      if newGoal == goal then
+        return .unchanged
+      else
+        return .changed newGoal #[]
+
+upstream/rpinf-precomp in case
+import precomp rpinf
+--
+-/
+
+--NVU
+-- Aesop branch: rpinf-precomp
 <<<<<<< HEAD
 -- make new branch
 -- git cherry-pick <your commit>
@@ -470,16 +503,11 @@ end NormStep
 -- upstream/rpinf-precomp in case
 -- import precomp rpinf
 =======
-=======
->>>>>>> a2016d9dfc66ece21d4e413532938cfc64357941
 -- squash commit (rebase -i)
 -- make new branch
 -- git cherry-pick <your commit>
 -- discard changes with git restore before rebranching
-<<<<<<< HEAD
 >>>>>>> 9fce008 (update calculating runtime)
-=======
->>>>>>> a2016d9dfc66ece21d4e413532938cfc64357941
 
 
   /-def NormStep.reduceAllInGoal : NormStep
@@ -492,17 +520,11 @@ end NormStep
       else
         return .changed newGoal #[]
 <<<<<<< HEAD
-<<<<<<< HEAD
 =======
 
 upstream/rpinf-precomp in case
 import precomp rpinf
 >>>>>>> 9fce008 (update calculating runtime)
-=======
-
-upstream/rpinf-precomp in case
-import precomp rpinf
->>>>>>> a2016d9dfc66ece21d4e413532938cfc64357941
 --
 -/
 
@@ -512,9 +534,11 @@ partial def normalizeGoalMVar (goal : MVarId)
   let mvarsHashSet := .ofArray mvars.toArray
   let mut normSteps := #[
     NormStep.reduceAllInGoal,
+    NormStep.reduceAllInGoal,
     NormStep.runPreSimpRules mvars,
     NormStep.unfold,
     NormStep.simp mvarsHashSet,
+    NormStep.runPostSimpRules mvars --NVU
     NormStep.runPostSimpRules mvars --NVU
   ]
   runNormSteps goal normSteps
