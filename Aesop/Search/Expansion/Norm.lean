@@ -451,7 +451,7 @@ def _root_.Aesop.reduceAllInGoal (goal : MVarId)
 
 def reduceAllInGoal : NormStep
   | goal, _, _ => do
-      let rpinf := false
+      let rpinf := true
       let skipProofs := false
       let skipTypes := true
       let skipImplicitArguments := false
