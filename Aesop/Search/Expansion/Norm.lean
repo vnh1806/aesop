@@ -360,6 +360,9 @@ def runNormSteps (goal : MVarId) (steps : Array NormStep)
   admitGoal goal
   modifyCurrentStats λ _ => default
   return .proved #[]
+  admitGoal goal
+  modifyCurrentStats λ _ => default
+  return .proved #[]
 
 namespace NormStep
 
@@ -424,8 +427,43 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
 
 --add innitializer to every change skiptype  skipproofs skipimplicitarguments....
 def _root_.Aesop.reduceAllInGoal (  goal : MVarId): BaseM MVarId := do
+  initialize collectStatsSkipTypes : Lean.Option Bool ←
+  Lean.Option.register `aesop.collectStats.skipTypes {
+    defValue := false
+    group := "aesop.stats"
+    descr := "(aesop) collect statistics about skipping types in Aesop."
+  }
+
+  initialize collectStatsSkipProofs : Lean.Option Bool ←
+  Lean.Option.register `aesop.collectStats.skipProofs {
+    defValue := false
+    group := "aesop.stats"
+    descr := "(aesop) collect statistics about skipping proofs in Aesop."
+  }
+
+  initialize collectStatsSkipImplicitArguments : Lean.Option Bool ←
+  Lean.Option.register `aesop.collectStats.skipImplicitArguments {
+    defValue := false
+    group := "aesop.stats"
+    descr := "(aesop) collect statistics about skipping implicit arguments in Aesop."
+  }
+
+  initialize collectStatsRpinf : Lean.Option Bool ←
+  Lean.Option.register `aesop.collectStats.rpinf {
+    defValue := false
+    group := "aesop.stats"
+    descr := "(aesop) collect statistics about the rpinf option in Aesop."
+  }
+
+--add innitializer to every change skiptype  skipproofs skipimplicitarguments....
+def _root_.Aesop.reduceAllInGoal (  goal : MVarId): BaseM MVarId := do
   goal.withContext do
     withReducible do
+      let skipTypes := collectStatsSkipTypes.get (<- getOptions)
+      let skipProofs := collectStatsSkipProofs.get (<- getOptions)
+      let skipImplicitArguments := collectStatsSkipImplicitArguments.get (<- getOptions)
+      let rpinf := collectStatsRpinf.get (<- getOptions)
+
       let skipTypes := collectStatsSkipTypes.get (<- getOptions)
       let skipProofs := collectStatsSkipProofs.get (<- getOptions)
       let skipImplicitArguments := collectStatsSkipImplicitArguments.get (<- getOptions)
