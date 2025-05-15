@@ -501,12 +501,8 @@ def _root_.Aesop.reduceAllInGoal (  goal : MVarId): BaseM MVarId := do
 
 def reduceAllInGoal : NormStep
   | goal, _, _ => do
-      let rpinf := true
-      let skipProofs := false
-      let skipTypes := true
-      let skipImplicitArguments := false
 
-      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal skipProofs skipTypes skipImplicitArguments rpinf)
+      let (newGoal, time) ← time (Aesop.reduceAllInGoal goal)
 
 
       modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
