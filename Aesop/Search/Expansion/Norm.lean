@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Jannis Limperg
 -/
 
+
 import Aesop.Forward.State.ApplyGoalDiff
 import Aesop.RuleTac
 import Aesop.RuleTac.ElabRuleTerm
@@ -14,12 +15,19 @@ import Aesop.Search.RuleSelection
 import Aesop.Search.SearchM
 import Aesop.Tree.State
 import Batteries.Lean.HashSet
+import Lean.Elab.Tactic
+import Lean.Elab
+import Lean.Environment
 
 open Lean Lean.Meta Aesop.Script
+open Lean.Elab
+open Lean.Elab.Tactic
+open Lean.Environment
 
 namespace Aesop
 
 namespace NormM
+
 
 structure Context where
   options : Options'
@@ -349,7 +357,9 @@ def runNormSteps (goal : MVarId) (steps : Array NormStep)
           return .changed goal scriptSteps
         else
           return .unchanged
-  throwError "aesop: exceeded maximum number of normalisation iterations ({maxIterations}). This means normalisation probably got stuck in an infinite loop."
+  admitGoal goal
+  modifyCurrentStats λ _ => default
+  return .proved #[]
 
 namespace NormStep
 
@@ -384,11 +394,43 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
 --use this command git switch -c your new-branch upstream/rpinf-precomp
 --cherry pick squashed commit
 
+  initialize collectStatsSkipTypes : Lean.Option Bool ←
+  Lean.Option.register `aesop.collectStats.skipTypes {
+    defValue := false
+    group := "aesop.stats"
+    descr := "(aesop) collect statistics about skipping types in Aesop."
+  }
 
-def _root_.Aesop.reduceAllInGoal (goal : MVarId)
-  (skipProofs skipTypes skipImplicitArguments rpinf: Bool) : BaseM MVarId := do
+  initialize collectStatsSkipProofs : Lean.Option Bool ←
+  Lean.Option.register `aesop.collectStats.skipProofs {
+    defValue := false
+    group := "aesop.stats"
+    descr := "(aesop) collect statistics about skipping proofs in Aesop."
+  }
+
+  initialize collectStatsSkipImplicitArguments : Lean.Option Bool ←
+  Lean.Option.register `aesop.collectStats.skipImplicitArguments {
+    defValue := false
+    group := "aesop.stats"
+    descr := "(aesop) collect statistics about skipping implicit arguments in Aesop."
+  }
+
+  initialize collectStatsRpinf : Lean.Option Bool ←
+  Lean.Option.register `aesop.collectStats.rpinf {
+    defValue := false
+    group := "aesop.stats"
+    descr := "(aesop) collect statistics about the rpinf option in Aesop."
+  }
+
+--add innitializer to every change skiptype  skipproofs skipimplicitarguments....
+def _root_.Aesop.reduceAllInGoal (  goal : MVarId): BaseM MVarId := do
   goal.withContext do
     withReducible do
+      let skipTypes := collectStatsSkipTypes.get (<- getOptions)
+      let skipProofs := collectStatsSkipProofs.get (<- getOptions)
+      let skipImplicitArguments := collectStatsSkipImplicitArguments.get (<- getOptions)
+      let rpinf := collectStatsRpinf.get (<- getOptions)
+
       let type ← goal.getType
       let reducedType ←
         if rpinf then
@@ -463,8 +505,10 @@ def reduceAllInGoal : NormStep
       let skipProofs := false
       let skipTypes := true
       let skipImplicitArguments := false
+
       let (newGoal, time) ← time (Aesop.reduceAllInGoal goal skipProofs skipTypes skipImplicitArguments rpinf)
-      trace[debug] "Execution time for `reduceAllInGoal`: {time.printAsMillis}"
+
+
       modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
       if newGoal == goal then
         return .unchanged
