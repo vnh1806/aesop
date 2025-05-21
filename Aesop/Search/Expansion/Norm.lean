@@ -391,11 +391,6 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
       return .unchanged
     let r := (← normSimp goal mvars).map (.normSimp, ·)
     return optNormRuleResultToNormSeqResult r
---NVU
---squash commit upto a20ac15dd63b5b85fdac712f3a8402580e06b4f9
---make new branch should end up with dd78c1426...
---use this command git switch -c your new-branch upstream/rpinf-precomp
---cherry pick squashed commit
 
   initialize collectStatsSkipTypes : Lean.Option Bool ←
   Lean.Option.register `aesop.collectStats.skipTypes {
