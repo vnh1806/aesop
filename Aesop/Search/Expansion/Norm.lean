@@ -357,9 +357,7 @@ def runNormSteps (goal : MVarId) (steps : Array NormStep)
           return .changed goal scriptSteps
         else
           return .unchanged
-  admitGoal goal
-  modifyCurrentStats λ _ => default
-  return .proved #[]
+
   admitGoal goal
   modifyCurrentStats λ _ => default
   return .proved #[]
@@ -392,28 +390,28 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
     let r := (← normSimp goal mvars).map (.normSimp, ·)
     return optNormRuleResultToNormSeqResult r
 
-  initialize collectStatsSkipTypes : Lean.Option Bool ←
+initialize collectStatsSkipTypes : Lean.Option Bool ←
   Lean.Option.register `aesop.collectStats.skipTypes {
-    defValue := false
+    defValue := true
     group := "aesop.stats"
     descr := "(aesop) collect statistics about skipping types in Aesop."
   }
 
-  initialize collectStatsSkipProofs : Lean.Option Bool ←
+initialize collectStatsSkipProofs : Lean.Option Bool ←
   Lean.Option.register `aesop.collectStats.skipProofs {
     defValue := false
     group := "aesop.stats"
     descr := "(aesop) collect statistics about skipping proofs in Aesop."
   }
 
-  initialize collectStatsSkipImplicitArguments : Lean.Option Bool ←
+initialize collectStatsSkipImplicitArguments : Lean.Option Bool ←
   Lean.Option.register `aesop.collectStats.skipImplicitArguments {
     defValue := false
     group := "aesop.stats"
     descr := "(aesop) collect statistics about skipping implicit arguments in Aesop."
   }
 
-  initialize collectStatsRpinf : Lean.Option Bool ←
+initialize collectStatsRpinf : Lean.Option Bool ←
   Lean.Option.register `aesop.collectStats.rpinf {
     defValue := false
     group := "aesop.stats"
@@ -421,34 +419,6 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
   }
 
 --add innitializer to every change skiptype  skipproofs skipimplicitarguments....
-def _root_.Aesop.reduceAllInGoal (  goal : MVarId): BaseM MVarId := do
-  initialize collectStatsSkipTypes : Lean.Option Bool ←
-  Lean.Option.register `aesop.collectStats.skipTypes {
-    defValue := false
-    group := "aesop.stats"
-    descr := "(aesop) collect statistics about skipping types in Aesop."
-  }
-
-  initialize collectStatsSkipProofs : Lean.Option Bool ←
-  Lean.Option.register `aesop.collectStats.skipProofs {
-    defValue := false
-    group := "aesop.stats"
-    descr := "(aesop) collect statistics about skipping proofs in Aesop."
-  }
-
-  initialize collectStatsSkipImplicitArguments : Lean.Option Bool ←
-  Lean.Option.register `aesop.collectStats.skipImplicitArguments {
-    defValue := false
-    group := "aesop.stats"
-    descr := "(aesop) collect statistics about skipping implicit arguments in Aesop."
-  }
-
-  initialize collectStatsRpinf : Lean.Option Bool ←
-  Lean.Option.register `aesop.collectStats.rpinf {
-    defValue := false
-    group := "aesop.stats"
-    descr := "(aesop) collect statistics about the rpinf option in Aesop."
-  }
 
 --add innitializer to every change skiptype  skipproofs skipimplicitarguments....
 def _root_.Aesop.reduceAllInGoal (  goal : MVarId): BaseM MVarId := do
@@ -534,10 +504,7 @@ def _root_.Aesop.reduceAllInGoal (  goal : MVarId): BaseM MVarId := do
 
 def reduceAllInGoal : NormStep
   | goal, _, _ => do
-
       let (newGoal, time) ← time (Aesop.reduceAllInGoal goal)
-
-
       modifyCurrentStats λ stats => {stats with reduceAllInGoal := stats.reduceAllInGoal + time}
       if newGoal == goal then
         return .unchanged
