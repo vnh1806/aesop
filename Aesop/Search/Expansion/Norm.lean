@@ -429,11 +429,6 @@ def _root_.Aesop.reduceAllInGoal (  goal : MVarId): BaseM MVarId := do
       let skipImplicitArguments := collectStatsSkipImplicitArguments.get (<- getOptions)
       let rpinf := collectStatsRpinf.get (<- getOptions)
 
-      let skipTypes := collectStatsSkipTypes.get (<- getOptions)
-      let skipProofs := collectStatsSkipProofs.get (<- getOptions)
-      let skipImplicitArguments := collectStatsSkipImplicitArguments.get (<- getOptions)
-      let rpinf := collectStatsRpinf.get (<- getOptions)
-
       let type ← goal.getType
       let reducedType ←
         if rpinf then
