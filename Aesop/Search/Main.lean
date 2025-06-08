@@ -225,7 +225,7 @@ def throwAesopEx (mvarId : MVarId) (remainingSafeGoals : Array MVarId)
 def handleNonfatalError (err : MessageData) : SearchM Q (Array MVarId) := do
   let rootMVarId ← getRootMVarId
   rootMVarId.admit
-  aesop_trace[proof] "Root goal is unprovable, expanding safe prefix and extracting proof."
+  aesop_trace[proof] "Root goal is unprovable, expanding safe prefix and extracting proof (original error: {err})."
   return#[]
 /-
   let safeExpansionSuccess ← expandSafePrefix
