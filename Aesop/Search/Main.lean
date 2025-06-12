@@ -223,11 +223,11 @@ def throwAesopEx (mvarId : MVarId) (remainingSafeGoals : Array MVarId)
 -- not expand the safe rules after the fact, the tactic's output would be
 -- sensitive to minor changes in, e.g., rule priority.
 def handleNonfatalError (err : MessageData) : SearchM Q (Array MVarId) := do
-  /-let rootMVarId ← getRootMVarId
+  let rootMVarId ← getRootMVarId
   rootMVarId.admit
   aesop_trace[proof] "Root goal is unprovable, expanding safe prefix and extracting proof (original error: {err})."
-  return#[]-/
-  let safeExpansionSuccess ← expandSafePrefix
+  return#[]
+  /-let safeExpansionSuccess ← expandSafePrefix
   let safeGoals ← extractSafePrefix
   aesop_trace[proof] do
     match ← getProof? with
@@ -247,7 +247,7 @@ def handleNonfatalError (err : MessageData) : SearchM Q (Array MVarId) := do
   if ! safeExpansionSuccess then
     logWarning m!"aesop: safe prefix was not fully expanded because the maximum number of rule applications ({(← read).options.maxSafePrefixRuleApplications}) was reached."
   safeGoals.mapM (clearForwardImplDetailHyps ·)
-
+-/
 partial def searchLoop : SearchM Q (Array MVarId) :=
   withIncRecDepth do
     checkSystem "aesop"
