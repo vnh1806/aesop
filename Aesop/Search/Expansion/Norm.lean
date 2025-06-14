@@ -392,14 +392,14 @@ def simp (mvars : Std.HashSet MVarId) : NormStep
 
 initialize collectStatsSkipTypes : Lean.Option Bool ←
   Lean.Option.register `aesop.collectStats.skipTypes {
-    defValue := true
+    defValue := false
     group := "aesop.stats"
     descr := "(aesop) collect statistics about skipping types in Aesop."
   }
 
 initialize collectStatsSkipProofs : Lean.Option Bool ←
   Lean.Option.register `aesop.collectStats.skipProofs {
-    defValue := false
+    defValue := true
     group := "aesop.stats"
     descr := "(aesop) collect statistics about skipping proofs in Aesop."
   }
