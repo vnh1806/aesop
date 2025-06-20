@@ -224,6 +224,7 @@ def throwAesopEx (mvarId : MVarId) (remainingSafeGoals : Array MVarId)
 -- sensitive to minor changes in, e.g., rule priority.
 def handleNonfatalError (err : MessageData) : SearchM Q (Array MVarId) := do
   let rootMVarId ← getRootMVarId
+  rootMVarId.eraseAssignment
   rootMVarId.admit
   aesop_trace[proof] "Root goal is unprovable, expanding safe prefix and extracting proof (original error: {err})."
   return#[]
