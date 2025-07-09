@@ -413,7 +413,7 @@ initialize collectStatsSkipImplicitArguments : Lean.Option Bool ←
 
 initialize collectStatsRpinf : Lean.Option Bool ←
   Lean.Option.register `aesop.collectStats.rpinf {
-    defValue := true
+    defValue := false
     group := "aesop.stats"
     descr := "(aesop) collect statistics about the rpinf option in Aesop."
   }
